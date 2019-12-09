@@ -1,0 +1,10 @@
+{
+  "commit": {
+    "commit": "4e450258fc6b6aa83ca3c76dc619ec8f4c147c45",
+    "author": "rOpenSci Bot <myrmecocystus+ropenscibot@gmail.com>",
+    "time": "2019-12-09 19:26:30",
+    "message": "Add links to official docs site.\nFor more details: https://ropensci.org/technotes/2019/06/07/ropensci-docs/\n"
+  },
+  "remote": "https://github.com/ropensci/smapr",
+  "pkg": "smapr"
+}

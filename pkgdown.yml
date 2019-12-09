@@ -1,0 +1,9 @@
+pandoc: '2.5'
+pkgdown: 1.4.1
+pkgdown_sha: ~
+articles:
+  smapr-intro: smapr-intro.html
+urls:
+  reference: https://docs.ropensci.org/smapr/reference
+  article: https://docs.ropensci.org/smapr/articles
+
