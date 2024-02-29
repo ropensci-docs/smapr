@@ -1,0 +1,12 @@
+{
+  "commit": {
+    "commit": "6274022ddcfa4e109679df5b71c32de104ae06e3",
+    "author": "Max Joseph <maxwellbjoseph@gmail.com>",
+    "time": "2023-03-06 21:52:07",
+    "files": 4,
+    "merge": true,
+    "message": "Merge pull request #78 from ropensci/date_note\n\nBetter checking of inputs"
+  },
+  "repo": "https://github.com/ropensci/smapr",
+  "pkg": "smapr"
+}
