@@ -1,0 +1,13 @@
+{
+  "commit": {
+    "commit": "c051d3ce8dc5004dfb51136e994429eb4e905c00",
+    "author": "Max Joseph <maxwellbjoseph@gmail.com>",
+    "time": "2025-11-29T01:46:34Z",
+    "files": 19,
+    "merge": true,
+    "message": "Merge pull request #87 from ropensci/doc-updates\n\nUpdated docs + examples + vignette"
+  },
+  "repo": "https://github.com/ropensci/smapr",
+  "pkg": "smapr",
+  "time": "2026-08-30T07:29:24Z"
+}

@@ -1,0 +1,502 @@
+# Introduction to the smapr package
+
+``` r
+
+library(smapr)
+library(terra)
+#> terra 1.8.86
+```
+
+This vignette outlines a basic use scenario for smapr. We will acquire
+and process [NASA (Soil Moisture Active-Passive) SMAP
+data](https://smap.jpl.nasa.gov/), and generate some simple
+visualizations.
+
+## SMAP data products
+
+Multiple SMAP data products are provided by the NSIDC, and these
+products vary in the amount of processing. Currently, smapr primarily
+supports level 3 and level 4 data products, which represent global daily
+composite and global three hourly modeled data products, respectively.
+NSIDC provides documentation for all SMAP data products on their
+[website](https://nsidc.org/data/smap/data), and we provide a summary of
+data products supported by smapr below.
+
+| Dataset id | Description                                         | Resolution |
+|------------|-----------------------------------------------------|------------|
+| SPL2SMAP_S | SMAP/Sentinel-1 Radiometer/Radar Soil Moisture      | 3 km       |
+| SPL3FTA    | Radar Northern Hemisphere Daily Freeze/Thaw State   | 3 km       |
+| SPL3SMA    | Radar Global Daily Soil Moisture                    | 3 km       |
+| SPL3SMP    | Radiometer Global Soil Moisture                     | 36 km      |
+| SPL3SMAP   | Radar/Radiometer Global Soil Moisture               | 9 km       |
+| SPL4SMAU   | Surface/Rootzone Soil Moisture Analysis Update      | 9 km       |
+| SPL4SMGP   | Surface/Rootzone Soil Moisture Geophysical Data     | 9 km       |
+| SPL4SMLM   | Surface/Rootzone Soil Moisture Land Model Constants | 9 km       |
+| SPL4CMDL   | Carbon Net Ecosystem Exchange                       | 9 km       |
+
+This vignette uses the level 4
+[SPL4SMAU](https://nsidc.org/data/SPL4SMAU) (Surface/Rootzone Soil
+Moisture Analysis Update) data product.
+
+## Preparing to access SMAP data
+
+NASA requires a username and password from their Earthdata portal to
+access SMAP data. You can get these credentials here:
+<https://earthdata.nasa.gov/>
+
+Once you have your credentials, you can use the `set_smap_credentials`
+function to set them for use by the smapr package:
+
+``` r
+
+set_smap_credentials("myusername", "mypassword")
+```
+
+This function saves your credentials for later use unless you use the
+argument `save = FALSE`.
+
+## Finding data
+
+To find out which SMAP data are available, we’ll use the `find_smap`
+function, which takes a data set ID, date(s) to search, and a dataset
+version.
+
+``` r
+
+available_data <- find_smap(id = 'SPL4SMAU', dates = '2018-06-01', version = 8)
+```
+
+This returns a data frame, where every row is one data file that is
+available on NASA’s servers.
+
+``` r
+
+str(available_data)
+#> 'data.frame':    7 obs. of  3 variables:
+#>  $ name: chr  "SMAP_L4_SM_aup_20180601T030000_Vv8010_001" "SMAP_L4_SM_aup_20180601T060000_Vv8010_001" "SMAP_L4_SM_aup_20180601T090000_Vv8010_001" "SMAP_L4_SM_aup_20180601T120000_Vv8010_001" ...
+#>  $ date: Date, format: "2018-06-01" "2018-06-01" ...
+#>  $ dir : chr  "SPL4SMAU/008/2018/06/01/" "SPL4SMAU/008/2018/06/01/" "SPL4SMAU/008/2018/06/01/" "SPL4SMAU/008/2018/06/01/" ...
+```
+
+## Downloading data
+
+To download the data, we can use `download_smap`. Note that this may
+take a while, depending on the number of files being downloaded, and the
+speed of your internet connection. Because we’re downloading multiple
+files, we will use the `verbose = FALSE` argument to avoid printing
+excessive output to the console.
+
+``` r
+
+local_files <- download_smap(available_data, overwrite = FALSE, verbose = FALSE)
+```
+
+Each file corresponds to different times as indicated by the file names:
+
+``` r
+
+local_files$name[1:2]
+#> [1] "SMAP_L4_SM_aup_20180601T030000_Vv8010_001"
+#> [2] "SMAP_L4_SM_aup_20180601T060000_Vv8010_001"
+```
+
+## Exploring data
+
+Each file that we downloaded is an HDF5 file with multiple datasets
+bundled together. To list all of the data in a file we can use
+`list_smap`. By default, if we give `list_smap` a data frame of local
+files, it will return a list of data frames. Because all of these data
+files are of the same data product, using `list_smap` on one file (e.g.,
+the first) will tell us what’s available in all of the files:
+
+``` r
+
+list_smap(local_files[1, ])
+#> $SMAP_L4_SM_aup_20180601T030000_Vv8010_001
+#>                                name                              group
+#> 1                                 y                                  .
+#> 2                     Forecast_Data                                  .
+#> 3               sm_surface_forecast                      Forecast_Data
+#> 4                     tb_v_forecast                      Forecast_Data
+#> 5             surface_temp_forecast                      Forecast_Data
+#> 6              tb_v_forecast_ensstd                      Forecast_Data
+#> 7         soil_temp_layer1_forecast                      Forecast_Data
+#> 8               sm_profile_forecast                      Forecast_Data
+#> 9                     tb_h_forecast                      Forecast_Data
+#> 10             sm_rootzone_forecast                      Forecast_Data
+#> 11             tb_h_forecast_ensstd                      Forecast_Data
+#> 12                             time                                  .
+#> 13          EASE2_global_projection                                  .
+#> 14                    Analysis_Data                                  .
+#> 15       sm_surface_analysis_ensstd                      Analysis_Data
+#> 16     surface_temp_analysis_ensstd                      Analysis_Data
+#> 17      sm_rootzone_analysis_ensstd                      Analysis_Data
+#> 18              sm_surface_analysis                      Analysis_Data
+#> 19       sm_profile_analysis_ensstd                      Analysis_Data
+#> 20             sm_rootzone_analysis                      Analysis_Data
+#> 21              sm_profile_analysis                      Analysis_Data
+#> 22        soil_temp_layer1_analysis                      Analysis_Data
+#> 23 soil_temp_layer1_analysis_ensstd                      Analysis_Data
+#> 24            surface_temp_analysis                      Analysis_Data
+#> 25                         cell_lat                                  .
+#> 26                         cell_row                                  .
+#> 27                         cell_lon                                  .
+#> 28                         Metadata                                  .
+#> 29                           Source                           Metadata
+#> 30                           L1C_TB                    Metadata/Source
+#> 31           AcquisitionInformation                           Metadata
+#> 32                         platform    Metadata/AcquisitionInformation
+#> 33                 platformDocument    Metadata/AcquisitionInformation
+#> 34                    radarDocument    Metadata/AcquisitionInformation
+#> 35                            radar    Metadata/AcquisitionInformation
+#> 36               radiometerDocument    Metadata/AcquisitionInformation
+#> 37                       radiometer    Metadata/AcquisitionInformation
+#> 38                      DataQuality                           Metadata
+#> 39                              TBH               Metadata/DataQuality
+#> 40                DomainConsistency           Metadata/DataQuality/TBH
+#> 41             CompletenessOmission           Metadata/DataQuality/TBH
+#> 42                              TBV               Metadata/DataQuality
+#> 43                DomainConsistency           Metadata/DataQuality/TBV
+#> 44             CompletenessOmission           Metadata/DataQuality/TBV
+#> 45             SeriesIdentification                           Metadata
+#> 46            DatasetIdentification                           Metadata
+#> 47                           Extent                           Metadata
+#> 48                             CRID                           Metadata
+#> 49                              AUP                      Metadata/CRID
+#> 50                             Root                      Metadata/CRID
+#> 51                           Config                           Metadata
+#> 52        GridSpatialRepresentation                           Metadata
+#> 53                         Latitude Metadata/GridSpatialRepresentation
+#> 54                        Longitude Metadata/GridSpatialRepresentation
+#> 55                      ProcessStep                           Metadata
+#> 56                      cell_column                                  .
+#> 57                Observations_Data                                  .
+#> 58                         tb_v_obs                  Observations_Data
+#> 59                tb_v_obs_time_sec                  Observations_Data
+#> 60                         tb_h_obs                  Observations_Data
+#> 61                  tb_h_orbit_flag                  Observations_Data
+#> 62             tb_h_resolution_flag                  Observations_Data
+#> 63                  tb_h_obs_errstd                  Observations_Data
+#> 64                  tb_v_orbit_flag                  Observations_Data
+#> 65             tb_v_resolution_flag                  Observations_Data
+#> 66                   tb_v_obs_assim                  Observations_Data
+#> 67                   tb_h_obs_assim                  Observations_Data
+#> 68                tb_h_obs_time_sec                  Observations_Data
+#> 69                  tb_v_obs_errstd                  Observations_Data
+#> 70                                x                                  .
+#>          otype      dclass         dim
+#> 1  H5I_DATASET   H5T_FLOAT        1624
+#> 2    H5I_GROUP        <NA>        <NA>
+#> 3  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 4  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 5  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 6  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 7  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 8  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 9  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 10 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 11 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 12 H5I_DATASET   H5T_FLOAT           1
+#> 13 H5I_DATASET  H5T_STRING           1
+#> 14   H5I_GROUP        <NA>        <NA>
+#> 15 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 16 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 17 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 18 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 19 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 20 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 21 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 22 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 23 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 24 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 25 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 26 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 27 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 28   H5I_GROUP        <NA>        <NA>
+#> 29   H5I_GROUP        <NA>        <NA>
+#> 30   H5I_GROUP        <NA>        <NA>
+#> 31   H5I_GROUP        <NA>        <NA>
+#> 32   H5I_GROUP        <NA>        <NA>
+#> 33   H5I_GROUP        <NA>        <NA>
+#> 34   H5I_GROUP        <NA>        <NA>
+#> 35   H5I_GROUP        <NA>        <NA>
+#> 36   H5I_GROUP        <NA>        <NA>
+#> 37   H5I_GROUP        <NA>        <NA>
+#> 38   H5I_GROUP        <NA>        <NA>
+#> 39   H5I_GROUP        <NA>        <NA>
+#> 40   H5I_GROUP        <NA>        <NA>
+#> 41   H5I_GROUP        <NA>        <NA>
+#> 42   H5I_GROUP        <NA>        <NA>
+#> 43   H5I_GROUP        <NA>        <NA>
+#> 44   H5I_GROUP        <NA>        <NA>
+#> 45   H5I_GROUP        <NA>        <NA>
+#> 46   H5I_GROUP        <NA>        <NA>
+#> 47   H5I_GROUP        <NA>        <NA>
+#> 48   H5I_GROUP        <NA>        <NA>
+#> 49   H5I_GROUP        <NA>        <NA>
+#> 50   H5I_GROUP        <NA>        <NA>
+#> 51   H5I_GROUP        <NA>        <NA>
+#> 52   H5I_GROUP        <NA>        <NA>
+#> 53   H5I_GROUP        <NA>        <NA>
+#> 54   H5I_GROUP        <NA>        <NA>
+#> 55   H5I_GROUP        <NA>        <NA>
+#> 56 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 57   H5I_GROUP        <NA>        <NA>
+#> 58 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 59 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 60 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 61 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 62 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 63 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 64 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 65 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 66 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 67 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 68 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 69 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 70 H5I_DATASET   H5T_FLOAT        3856
+```
+
+To dig deeper, we can use the `all` argument to `list_smap`:
+
+``` r
+
+list_smap(local_files[1, ], all = TRUE)
+#> $SMAP_L4_SM_aup_20180601T030000_Vv8010_001
+#>                                name                              group
+#> 1                                 y                                  .
+#> 2                     Forecast_Data                                  .
+#> 3               sm_surface_forecast                      Forecast_Data
+#> 4                     tb_v_forecast                      Forecast_Data
+#> 5             surface_temp_forecast                      Forecast_Data
+#> 6              tb_v_forecast_ensstd                      Forecast_Data
+#> 7         soil_temp_layer1_forecast                      Forecast_Data
+#> 8               sm_profile_forecast                      Forecast_Data
+#> 9                     tb_h_forecast                      Forecast_Data
+#> 10             sm_rootzone_forecast                      Forecast_Data
+#> 11             tb_h_forecast_ensstd                      Forecast_Data
+#> 12                             time                                  .
+#> 13          EASE2_global_projection                                  .
+#> 14                    Analysis_Data                                  .
+#> 15       sm_surface_analysis_ensstd                      Analysis_Data
+#> 16     surface_temp_analysis_ensstd                      Analysis_Data
+#> 17      sm_rootzone_analysis_ensstd                      Analysis_Data
+#> 18              sm_surface_analysis                      Analysis_Data
+#> 19       sm_profile_analysis_ensstd                      Analysis_Data
+#> 20             sm_rootzone_analysis                      Analysis_Data
+#> 21              sm_profile_analysis                      Analysis_Data
+#> 22        soil_temp_layer1_analysis                      Analysis_Data
+#> 23 soil_temp_layer1_analysis_ensstd                      Analysis_Data
+#> 24            surface_temp_analysis                      Analysis_Data
+#> 25                         cell_lat                                  .
+#> 26                         cell_row                                  .
+#> 27                         cell_lon                                  .
+#> 28                         Metadata                                  .
+#> 29                           Source                           Metadata
+#> 30                           L1C_TB                    Metadata/Source
+#> 31           AcquisitionInformation                           Metadata
+#> 32                         platform    Metadata/AcquisitionInformation
+#> 33                 platformDocument    Metadata/AcquisitionInformation
+#> 34                    radarDocument    Metadata/AcquisitionInformation
+#> 35                            radar    Metadata/AcquisitionInformation
+#> 36               radiometerDocument    Metadata/AcquisitionInformation
+#> 37                       radiometer    Metadata/AcquisitionInformation
+#> 38                      DataQuality                           Metadata
+#> 39                              TBH               Metadata/DataQuality
+#> 40                DomainConsistency           Metadata/DataQuality/TBH
+#> 41             CompletenessOmission           Metadata/DataQuality/TBH
+#> 42                              TBV               Metadata/DataQuality
+#> 43                DomainConsistency           Metadata/DataQuality/TBV
+#> 44             CompletenessOmission           Metadata/DataQuality/TBV
+#> 45             SeriesIdentification                           Metadata
+#> 46            DatasetIdentification                           Metadata
+#> 47                           Extent                           Metadata
+#> 48                             CRID                           Metadata
+#> 49                              AUP                      Metadata/CRID
+#> 50                             Root                      Metadata/CRID
+#> 51                           Config                           Metadata
+#> 52        GridSpatialRepresentation                           Metadata
+#> 53                         Latitude Metadata/GridSpatialRepresentation
+#> 54                        Longitude Metadata/GridSpatialRepresentation
+#> 55                      ProcessStep                           Metadata
+#> 56                      cell_column                                  .
+#> 57                Observations_Data                                  .
+#> 58                         tb_v_obs                  Observations_Data
+#> 59                tb_v_obs_time_sec                  Observations_Data
+#> 60                         tb_h_obs                  Observations_Data
+#> 61                  tb_h_orbit_flag                  Observations_Data
+#> 62             tb_h_resolution_flag                  Observations_Data
+#> 63                  tb_h_obs_errstd                  Observations_Data
+#> 64                  tb_v_orbit_flag                  Observations_Data
+#> 65             tb_v_resolution_flag                  Observations_Data
+#> 66                   tb_v_obs_assim                  Observations_Data
+#> 67                   tb_h_obs_assim                  Observations_Data
+#> 68                tb_h_obs_time_sec                  Observations_Data
+#> 69                  tb_v_obs_errstd                  Observations_Data
+#> 70                                x                                  .
+#>          otype      dclass         dim
+#> 1  H5I_DATASET   H5T_FLOAT        1624
+#> 2    H5I_GROUP        <NA>        <NA>
+#> 3  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 4  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 5  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 6  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 7  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 8  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 9  H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 10 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 11 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 12 H5I_DATASET   H5T_FLOAT           1
+#> 13 H5I_DATASET  H5T_STRING           1
+#> 14   H5I_GROUP        <NA>        <NA>
+#> 15 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 16 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 17 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 18 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 19 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 20 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 21 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 22 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 23 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 24 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 25 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 26 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 27 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 28   H5I_GROUP        <NA>        <NA>
+#> 29   H5I_GROUP        <NA>        <NA>
+#> 30   H5I_GROUP        <NA>        <NA>
+#> 31   H5I_GROUP        <NA>        <NA>
+#> 32   H5I_GROUP        <NA>        <NA>
+#> 33   H5I_GROUP        <NA>        <NA>
+#> 34   H5I_GROUP        <NA>        <NA>
+#> 35   H5I_GROUP        <NA>        <NA>
+#> 36   H5I_GROUP        <NA>        <NA>
+#> 37   H5I_GROUP        <NA>        <NA>
+#> 38   H5I_GROUP        <NA>        <NA>
+#> 39   H5I_GROUP        <NA>        <NA>
+#> 40   H5I_GROUP        <NA>        <NA>
+#> 41   H5I_GROUP        <NA>        <NA>
+#> 42   H5I_GROUP        <NA>        <NA>
+#> 43   H5I_GROUP        <NA>        <NA>
+#> 44   H5I_GROUP        <NA>        <NA>
+#> 45   H5I_GROUP        <NA>        <NA>
+#> 46   H5I_GROUP        <NA>        <NA>
+#> 47   H5I_GROUP        <NA>        <NA>
+#> 48   H5I_GROUP        <NA>        <NA>
+#> 49   H5I_GROUP        <NA>        <NA>
+#> 50   H5I_GROUP        <NA>        <NA>
+#> 51   H5I_GROUP        <NA>        <NA>
+#> 52   H5I_GROUP        <NA>        <NA>
+#> 53   H5I_GROUP        <NA>        <NA>
+#> 54   H5I_GROUP        <NA>        <NA>
+#> 55   H5I_GROUP        <NA>        <NA>
+#> 56 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 57   H5I_GROUP        <NA>        <NA>
+#> 58 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 59 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 60 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 61 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 62 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 63 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 64 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 65 H5I_DATASET H5T_INTEGER 3856 x 1624
+#> 66 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 67 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 68 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 69 H5I_DATASET   H5T_FLOAT 3856 x 1624
+#> 70 H5I_DATASET   H5T_FLOAT        3856
+```
+
+Looking at this output, we can conclude that the file contains multiple
+arrays (notice the `dim` column). These arrays correspond to things like
+estimated root zone soil moisture
+(`/Analysis_Data/sm_rootzone_analysis`), estimated surface soil moisture
+(`/Analysis_Data/sm_surface_analysis`), and estimated surface
+temperature (`/Analysis_Data/surface_temp_analysis`). See
+<https://nsidc.org/data/spl4smau> for more detailed information on what
+these datasets represent and how they were generated.
+
+## Extracting data
+
+The datasets that we are interested in are spatial grids. The `smapr`
+package can extract these data into `raster` objects with the
+`extract_smap` function, which takes a dataset name as an argument.
+These names are paths that can be generated from the output of
+`list_smap`. For example, if we want to get rootzone soil moisture, we
+can see a dataset with name `sm_rootzone_analysis` in group
+`/Analysis_Data`, so that the path to the dataset is
+`/Analysis_Data/sm_rootzone_analysis`:
+
+``` r
+
+sm_raster <- extract_smap(local_files, '/Analysis_Data/sm_rootzone_analysis')
+```
+
+This will extract all of the data in the data frame `local_files`,
+generating a terra SpatRaster object with one layer per file:
+
+``` r
+
+sm_raster
+#> class       : SpatRaster 
+#> size        : 1624, 3856, 7  (nrow, ncol, nlyr)
+#> resolution  : 8984.982, 8205.308  (x, y)
+#> extent      : -17367530, 17278561, -6010879, 7314541  (xmin, xmax, ymin, ymax)
+#> coord. ref. : +proj=cea +lat_ts=30 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs 
+#> source(s)   : memory
+#> names       : SMAP_~0_001, SMAP_~0_001, SMAP_~0_001, SMAP_~0_001, SMAP_~0_001, SMAP_~0_001, ... 
+#> min values  : 0.006697664, 0.006756059, 0.006810773, 0.006761872,  0.00649582, 0.006449559, ... 
+#> max values  : 0.930000007, 0.930000007, 0.930000007, 0.930000007,  0.93000001, 0.930000007, ...
+```
+
+We can visualize each layer:
+
+``` r
+
+plot(sm_raster)
+```
+
+![plot of chunk plot-raster](articles/smapr-intro-plot-raster-1.png)
+
+plot of chunk plot-raster
+
+Cropping, masking, and summarization can then proceed using the terra R
+package.
+
+For example, to get mean soil moisture values across layers,
+use[`terra::app()`](https://rspatial.github.io/terra/reference/app.html):
+
+``` r
+
+mean_sm <- app(sm_raster, fun = mean)
+plot(mean_sm, main = 'Mean soil moisture')
+```
+
+![plot of chunk get-mean](articles/smapr-intro-get-mean-1.png)
+
+plot of chunk get-mean
+
+### Comparing surface and soil moisture
+
+Our SPL4SMAU data have estimated surface and rootzone soil moisture
+layers. If we want to compare these values, we can load the surface soil
+moisture data, compute the mean value over layers as we did for the
+rootzone soil moisture raster, and generate a scatterplot.
+
+``` r
+
+surface_raster <- extract_smap(local_files,
+                               name = '/Analysis_Data/sm_surface_analysis')
+
+mean_surface_sm <- app(surface_raster, fun = mean)
+
+# compare values
+plot(values(mean_sm), values(mean_surface_sm), col = 'dodgerblue', cex = .1,
+     xlab = 'Rootzone soil moisture', ylab = 'Surface soil moisture', bty = 'n')
+abline(0, 1, lty = 2)
+```
+
+![plot of chunk
+surface-vs-rootzone](articles/smapr-intro-surface-vs-rootzone-1.png)
+
+plot of chunk surface-vs-rootzone
